@@ -19,6 +19,8 @@ urlpatterns = [
     path('rooms/<int:room_id>/quit/', quit_room),
     path('rooms/<int:room_id>/make_move/', make_move),
     path('rooms/<int:room_id>/update_board/', update_board),
+    path('rooms/<int:room_id>/reset_room/', reset_room),
+    path('rooms/<int:room_id>/delete_room/', delete_room),
 ]
 
 # urlpatterns+= [re_path(r'^.*',TemplateView.as_view(template_name='index.html'))]

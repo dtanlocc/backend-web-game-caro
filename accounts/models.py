@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser,PermissionsMixin,BaseUserManager
+import json
 
 
 class UserAccountManager(BaseUserManager):
@@ -51,16 +52,36 @@ class UserAccount(AbstractBaseUser,PermissionsMixin):
     
     
     def __str__(self):
-        return self.id
+        return str(self.id)
 
 class Room(models.Model):
     id = models.AutoField(primary_key=True)
     user1 = models.ForeignKey(UserAccount, related_name='user1', on_delete=models.CASCADE, null=True, blank=True)
+    # name_user1 = models.CharField(max_length=255, blank=True, null=True)
     user2 = models.ForeignKey(UserAccount, related_name='user2', on_delete=models.CASCADE, null=True, blank=True)
+    # name_user2 = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=20, default='waiting')
     turn = models.ForeignKey(UserAccount, related_name='turn', on_delete=models.CASCADE, null=True, blank=True)
     winner = models.ForeignKey(UserAccount, related_name='winner', on_delete=models.CASCADE, null=True, blank=True)
+    def create_board(self):
+        board = Board(room=self)
+        board.save()
+        self.board = board
+        self.save()
+    
+    def reset_room(self,):
+        # self.user1 = None
+        # self.user2 = None
+        self.turn = None
+        self.status = 'waiting'
+        self.winner = None
+        self.board.reset_board()
+        self.save()
 
+    # def save(self, *args, **kwargs):
+    #     self.name_user1 = self.user1.get_full_name()
+    #     self.name_user2 = self.user2.get_full_name()
+    #     super(Room, self).save(*args, **kwargs)
     def __str__(self):
         return self.id
 
@@ -72,44 +93,53 @@ class Move(models.Model):
     x = models.IntegerField()
     y = models.IntegerField()
 
-    def get_board(self):
-        return [[int(cell) for cell in row.split(',')] for row in self.board.split(';')]
+    # def get_board(self):
+    #     return [[int(cell) for cell in row.split(',')] for row in self.board.split(';')]
 
-    def set_board(self, board):
-        self.board = ';'.join([','.join([str(cell) for cell in row]) for row in board])
+    # def set_board(self, board):
+    #     self.board = ';'.join([','.join([str(cell) for cell in row]) for row in board])
 
-    def make_move(self, x, y, move_type):
-        board = self.get_board()
-        board[x][y] = move_type
-        self.set_board(board)
-        self.save()
+    # def make_move(self, x, y, move_type):
+    #     board = self.get_board()
+    #     board[x][y] = move_type
+    #     self.set_board(board)
+    #     self.save()
     
 
 class Board(models.Model):
     room = models.OneToOneField(Room, on_delete=models.CASCADE, primary_key=True)
-    board = models.TextField(default='')
+    board = models.TextField(default=str([[0]*16 for _ in range(16)]))
     SIZE = 16
 
-    def __init__(self):
-        self.board = [[0 for _ in range(self.SIZE)] for _ in range(self.SIZE)]
-        self.moves = []
+    def make_move(self, x, y, move_type):
+        self.board = eval(self.board)
+        if self.board[x][y] == move_type:
+            return {'message':'x y khong phu hop'}
+        self.board[x][y] = move_type
+        self.board = str(self.board)
+        self.save()
+        return {'message':move_type}
 
-    def make_move(self, x, y, player):
-        self.board[x][y] = player
-        self.moves.append((x, y, player))
+    def reset_board(self):
+        self.board = str([[0]*16 for _ in range(16)])
+        self.save()
 
-    def get_moves(self):
-        return self.moves
+    # def get_moves(self):
+    #     return self.moves
 
     def check_win(self, x, y, player):
+        self.board = eval(self.board)
         # Kiểm tra hàng dọc
         count = 0
+        print(self.board)
+        print(self.board[x])
         for i in range(self.SIZE):
             if self.board[x][i] == player:
                 count += 1
             else:
                 count = 0
             if count == 5:
+                self.board = str(self.board)
                 return True
 
         # Kiểm tra hàng ngang
@@ -120,6 +150,7 @@ class Board(models.Model):
             else:
                 count = 0
             if count == 5:
+                self.board = str(self.board)
                 return True
 
         # Kiểm tra đường chéo chính
@@ -132,6 +163,7 @@ class Board(models.Model):
             else:
                 count = 0
             if count == 5:
+                self.board = str(self.board)
                 return True
             start_x += 1
             start_y += 1
@@ -146,10 +178,12 @@ class Board(models.Model):
             else:
                 count = 0
             if count == 5:
+                self.board = str(self.board)
                 return True
             start_x -= 1
             start_y += 1
 
+        self.board = str(self.board)
         return False
 
 # Create your models here.
